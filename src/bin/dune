@@ -1,4 +1,4 @@
 (executable
  (public_name src)
  (name main)
- (libraries rbtree_lib))
+ (libraries tree_lib))
