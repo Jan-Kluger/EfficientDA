@@ -5,7 +5,7 @@ module type TREE = sig
 
   val delete : 'a t -> 'a -> 'a t
 
-  val search : 'a t -> int -> 'a
+  val search : 'a t -> 'a -> 'a
 
   val successor : 'a t -> 'a -> 'a
 
