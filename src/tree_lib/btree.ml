@@ -2,8 +2,8 @@
 
 (* type for B+ tree*)
 type 'a bp_node =
-  | Internal of 'a array * 'a bp_node array              (* Keys and child pointers as arrays *)
-  | Leaf of ('a * 'a option) array * 'a bp_node option   (* Data as array and next leaf *)
+  | Internal of 'a array * 'a bp_node array
+  | Leaf of ('a * 'a option) array * 'a bp_node option
 
 type 'a bp_tree = {
   root : 'a bp_node;
@@ -31,58 +31,84 @@ end
   
 (* Public methods for B+ tree *)
 module type TREE = sig
-  type 'a t
+  type key
 
-  val empty : ?k:int -> 'a t
+  type t
 
-  val insert : 'a t -> 'a -> 'a t
+  val empty : ?k:int -> t
 
-  val delete : 'a t -> 'a -> 'a t
+  val insert : t -> key -> t
 
-  val search : 'a t -> 'a -> 'a
+  val delete : t -> key -> t
 
-  val successor : 'a t -> 'a -> 'a
+  val search : t -> key -> key
 
-  val predecessor : 'a t -> 'a -> 'a
+  val successor : t -> key -> key
 
-  val min : 'a t -> 'a
+  val predecessor : t -> key -> key
 
-  val max : 'a t -> 'a
+  val min : t -> key
+
+  val max : t -> key
 end
 
 (* Implementation of B+ tree *)
-module BPTree (Order : ORDER) : TREE = struct
-  type 'a t = 'a bp_tree
+module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
 
-  (* Method for inserting at correct position in a list, let compiler inline for greater performance *)
-  let [@inline] [@tail_mod_cons] put_in_pos (arr : 'a array) (el : 'a) : 'a array  =
-    let len = Array.length arr in
-    let rec binary_search low high =
+  type key = Order.t
+
+  type t = key bp_tree
+
+  (* Bin search to get rid of redundancy, ppx enabled inline to improve performance *)
+  let [@inline] binary_search (arr : key array) (k : key) : int =
+    let rec aux low high =
       if low >= high then low
       else
         let mid = (low + high) / 2 in
-        if arr.(mid) < el then binary_search (mid + 1) high
-        else binary_search low mid
+        match Order.compare k arr.(mid) with
+        | Lesser | Equal -> aux low mid
+        | Greater -> aux (mid + 1) high
     in
-    let pos = binary_search 0 len in
-    Array.append (Array.sub arr 0 pos) [|el|] |> Array.append( Array.sub arr pos (len - pos))
+    aux 0 (Array.length arr)
 
-  (* Method to get an empty tree *)
-  let empty ?(k = 2) : 'a bp_tree =
+  (* finds correct position in an array and inserts (this os to keep array sorted) *)
+  let put_in_pos (arr : key array) (el : key) : key array =
+    let pos = binary_search arr el in
+    Array.append (Array.sub arr 0 pos) [|el|]
+    |> Array.append (Array.sub arr pos (Array.length arr - pos))
+
+  (* find leaf at which position we should insert element *)
+  let rec find_leaf (node : key bp_node) (el : key) : key bp_node =
+    match node with
+    | Leaf _ -> node
+    | Internal (keys, children) ->
+        let child_index = binary_search keys el in
+        find_leaf children.(child_index) el
+
+  let empty ?(k = 2) : t =
     { root = Leaf ([||], None); k = k }
-  
-  let insert (tree : 'a t) (element : 'a) : 'a t = 
-    failwith "todo"
 
-  let delete (tree : 'a t) (element : 'a) = failwith "TODO"
+  let insert (tree : t) (element : key) : t =
+    let root = tree.root in
+    let _leaf_node = find_leaf root element in
+    failwith "TODO: insert logic"
 
-  let search (tree : 'a t) (element : 'a) = failwith "TODO"
+  let delete (tree : t) (element : key) : t =
+    failwith "TODO"
 
-  let successor (tree : 'a t) (element : 'a) = failwith "TODO"
+  let search (tree : t) (element : key) : key =
+    failwith "TODO"
 
-  let predecessor (tree : 'a t) (element : 'a) = failwith "TODO"
+  let successor (tree : t) (element : key) : key =
+    failwith "TODO"
 
-  let min (tree : 'a t) = failwith "TODO"
+  let predecessor (tree : t) (element : key) : key =
+    failwith "TODO"
 
-  let max (tree : 'a t) = failwith "TODO"
-  end
+  let min (tree : t) : key =
+    failwith "TODO"
+
+  let max (tree : t) : key =
+    failwith "TODO"
+
+end
