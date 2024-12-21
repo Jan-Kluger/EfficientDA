@@ -3,7 +3,7 @@
 (* type for B+ tree*)
 type 'a bp_node =
   | Internal of 'a array * 'a bp_node array
-  | Leaf of ('a * 'a option) array * 'a bp_node option
+  | Leaf of 'a array * 'a bp_node option
 
 type 'a bp_tree = {
   root : 'a bp_node;
@@ -77,21 +77,32 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     Array.append (Array.sub arr 0 pos) [|el|]
     |> Array.append (Array.sub arr pos (Array.length arr - pos))
 
-  (* find leaf at which position we should insert element *)
-  let rec find_leaf (node : key bp_node) (el : key) : key bp_node =
-    match node with
-    | Leaf _ -> node
-    | Internal (keys, children) ->
-        let child_index = binary_search keys el in
-        find_leaf children.(child_index) el
-
   let empty ?(k = 2) : t =
     { root = Leaf ([||], None); k = k }
 
   let insert (tree : t) (element : key) : t =
-    let root = tree.root in
-    let _leaf_node = find_leaf root element in
-    failwith "TODO: insert logic"
+    let rec insert_in_node (node : key bp_node) : key bp_node =
+      (* Find leaf node where to insert *)
+      match node with
+      
+      (* found leaf to insert at *)
+      | Leaf (values, neighbor) ->
+          if Array.length values >= tree.k then
+            failwith "TODO: Leaf splitting"
+
+          else
+            let new_vals = put_in_pos values element in
+            Leaf (new_vals, neighbor)
+
+      (* continue sifitng through internal nodes if leaf not yet found *)
+      | Internal (keys, children) ->
+          let [@inline] idx = binary_search keys element in
+          let new_children = Array.copy children in
+          new_children.(idx) <- insert_in_node children.(idx);
+          Internal (keys, new_children)
+    in
+    let new_root = insert_in_node tree.root in
+    { tree with root = new_root }
 
   let delete (tree : t) (element : key) : t =
     failwith "TODO"
@@ -110,5 +121,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
 
   let max (tree : t) : key =
     failwith "TODO"
-
 end
+
+(* BPTree with ints *)
+module Int_BPTree = BPTree(IntOrder)
