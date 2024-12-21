@@ -84,7 +84,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     let rec insert_in_node (node : key bp_node) : key bp_node =
       (* Find leaf node where to insert *)
       match node with
-      
+
       (* found leaf to insert at *)
       | Leaf (values, neighbor) ->
           if Array.length values >= tree.k then
@@ -97,9 +97,8 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
       (* continue sifitng through internal nodes if leaf not yet found *)
       | Internal (keys, children) ->
           let [@inline] idx = binary_search keys element in
-          let new_children = Array.copy children in
-          new_children.(idx) <- insert_in_node children.(idx);
-          Internal (keys, new_children)
+          children.(idx) <- insert_in_node children.(idx);
+          Internal (keys, children)
     in
     let new_root = insert_in_node tree.root in
     { tree with root = new_root }
