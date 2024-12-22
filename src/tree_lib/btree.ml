@@ -48,7 +48,7 @@ module type TREE = sig
   type key
   type t
 
-  val empty : ?k:int -> unit -> t
+  val empty :  unit -> ?k:int -> t
   val insert : t -> element:key -> t
   val delete : t -> element:key -> t
   val search : t -> element:key -> key option
