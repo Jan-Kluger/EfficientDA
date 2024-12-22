@@ -182,8 +182,18 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
   let delete (tree : t) ~(element : key) : t =
     failwith "TODO"
 
-  let search_node (tree : t) ~(element : key) : key bp_node option =
-    failwith "TODO"
+  let rec search_node (tree : t) ~(element : key) : key bp_node option =
+      let rec aux node =
+        match node with
+        (* Found the leaf node *)
+        | Leaf _ -> Some node 
+
+        (* Traverse the appropriate child *)
+        | Internal (keys, children) ->
+            let idx = binary_search keys element in
+            aux children.(idx) 
+      in
+      aux tree.root
 
   (* Normal seach, using monads to avoid nested matchings *)
   let search (tree : t) ~(element : key) : key option =
@@ -322,4 +332,6 @@ let max_v = Int_BPTree.max newTree
 
 let () =
   Int_BPTree.print_tree string_of_int newTree;
-  print_endline (string_of_int (Option.value ~default:0 min_v))
+  print_endline (string_of_int (Option.value ~default:(-1) min_v));
+  print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.search newTree ~element:4)));
+  print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.search newTree ~element:14)));
