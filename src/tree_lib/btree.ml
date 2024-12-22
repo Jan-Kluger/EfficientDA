@@ -114,7 +114,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     |> Array.append (Array.sub arr pos (Array.length arr - pos))
 
   (* Get empty tree, by default k is set to 2, can be decided by user themselves of course *)
-  let empty ?(k = 2) (): t =
+  let empty () ?(k = 2): t =
     { root = Leaf ([||], None); k = k }
 
   (* Insert helper method *)
@@ -206,8 +206,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
           end
     | _ -> failwith "search_node must yield a leaf"
   
-
-    let predecessor (tree : t) ~(element : key) : key option =
+  let predecessor (tree : t) ~(element : key) : key option =
       let rec find_min_leaf node =
         match node with
         | Leaf (vals, _) -> Some node  (* Return the smallest leaf node *)
