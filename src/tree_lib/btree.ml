@@ -285,25 +285,29 @@ end
 (* BPTree with ints *)
 module Int_BPTree = BPTree(IntOrder)
 
+(* shuffle args of insert to make pipeline friendly *)
+let pipe_insert = (fun x tree -> Int_BPTree.insert tree x)
+
 (* Make new BP tree *)
-let testTree = Int_BPTree.empty ()
-let newTree = Int_BPTree.insert testTree 1
-let newTree = Int_BPTree.insert newTree 2
-let newTree = Int_BPTree.insert newTree 3
-let newTree = Int_BPTree.insert newTree 4
-let newTree = Int_BPTree.insert newTree 5
-let newTree = Int_BPTree.insert newTree 6
-let newTree = Int_BPTree.insert newTree 7
-let newTree = Int_BPTree.insert newTree 8
-let newTree = Int_BPTree.insert newTree 9
-let newTree = Int_BPTree.insert newTree 10
+let newTree =
+  Int_BPTree.empty ()
+  |> pipe_insert 1
+  |> pipe_insert 2
+  |> pipe_insert 3
+  |> pipe_insert 4
+  |> pipe_insert 5
+  |> pipe_insert 6
+  |> pipe_insert 7
+  |> pipe_insert 8
+  |> pipe_insert 9
+  |> pipe_insert 10
+
+(* let newTree = Int_BPTree.delete newTree 4
+let newTree = Int_BPTree.delete newTree 2 *)
 
 let min_v = Int_BPTree.min newTree
 let max_v = Int_BPTree.max newTree
-let poo = Option.value ~default:0 min_v
 
 let () =
-  Int_BPTree.print_tree string_of_int newTree
-
-let () =
-  print_endline (string_of_int poo)
+  Int_BPTree.print_tree string_of_int newTree;
+  print_endline (string_of_int (Option.value ~default:0 min_v))
