@@ -48,7 +48,7 @@ module type TREE = sig
   type key
   type t
 
-  val empty :  unit -> ?k:int -> t
+  val empty : ?k:int -> unit -> t
   val insert : t -> element:key -> t
   val delete : t -> element:key -> t
   val search : t -> element:key -> key option
@@ -63,7 +63,7 @@ end
 (* 
 #############################################
 #                                           #
-#            tree implementation            #
+#         tree implementation               #
 #                                           #
 ############################################# 
 *)
@@ -114,7 +114,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     |> Array.append (Array.sub arr pos (Array.length arr - pos))
 
   (* Get empty tree, by default k is set to 2, can be decided by user themselves of course *)
-  let empty () ?(k = 2): t =
+  let empty ?(k = 2) (): t =
     { root = Leaf ([||], None); k = k }
 
   (* Insert helper method *)
