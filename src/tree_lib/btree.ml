@@ -43,20 +43,30 @@ module IntOrder : ORDER with type t = int = struct
 end
   
 (* Public methods for B+ tree *)
+(* Labelled element argument to make Pipeline friendly *)
 module type TREE = sig
   type key
   type t
 
   val empty : ?k:int -> unit -> t
-  val insert : t -> key -> t
-  val delete : t -> key -> t
-  val search : t -> key -> key option
-  val successor : t -> key -> key option
-  val predecessor : t -> key -> key option
+  val insert : t -> element:key -> t
+  val delete : t -> element:key -> t
+  val search : t -> element:key -> key option
+  val successor : t -> element:key -> key option
+  val predecessor : t -> element:key -> key option
   val min : t -> key option
   val max : t -> key option
   val print_tree : (key -> string) -> t -> unit
 end
+
+
+(* 
+#############################################
+#                                           #
+#            tree implementation            #
+#                                           #
+############################################# 
+*)
 
 (* Implementation of B+ tree *)
 module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
@@ -160,8 +170,8 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
       end
 
   (* Inser method, Log N? *)
-  let insert (tree : t) (el : key) : 'a bp_tree =
-    match insert_in_node tree tree.root el with
+  let insert (tree : t) ~(element : key) : 'a bp_tree =
+    match insert_in_node tree tree.root element with
     | NoSplit updated_root ->
       { tree with root = updated_root }
     | Split (l_node, sep_key, r_node) ->
@@ -169,23 +179,23 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
       (* new root value if root splits, just the seperator key *)
       { tree with root = Internal ([| sep_key |], new_children) }
 
-  let delete (tree : t) (element : key) : t =
+  let delete (tree : t) ~(element : key) : t =
     failwith "TODO"
 
-  let search_node (tree : t) (element : key) : key bp_node option =
+  let search_node (tree : t) ~(element : key) : key bp_node option =
     failwith "TODO"
 
   (* Normal seach, using monads to avoid nested matchings *)
-  let search (tree : t) (element : key) : key option =
-    search_node tree element >>= function
+  let search (tree : t) ~(element : key) : key option =
+    search_node tree ~element:element >>= function
     | Leaf (value, _) -> binary_search_opt value element >>= fun idx -> Some value.(idx)
     | _ -> failwith "search must yield leaf"
 
   (* Go to neighbor *)
-  let successor (tree : t) (key : key) : key option =
-    search_node tree key >>= function
+  let successor (tree : t) ~(element : key) : key option =
+    search_node tree ~element:element >>= function
     | Leaf (vals, neighbor_opt) ->
-        binary_search_opt vals key >>= fun idx ->
+        binary_search_opt vals element >>= fun idx ->
         if idx < Array.length vals - 1 then
           Some vals.(idx + 1)  (* Successor is the next value in the current array *)
         else
@@ -197,16 +207,16 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     | _ -> failwith "search_node must yield a leaf"
   
 
-    let predecessor (tree : t) (key : key) : key option =
+    let predecessor (tree : t) ~(element : key) : key option =
       let rec find_min_leaf node =
         match node with
         | Leaf (vals, _) -> Some node  (* Return the smallest leaf node *)
         | Internal (_, children) -> find_min_leaf children.(0)  (* Traverse to the leftmost child *)
       in
     
-      search_node tree key >>= function
+      search_node tree ~element:element >>= function
       | Leaf (vals, neighbor_opt) ->
-          binary_search_opt vals key >>= fun idx ->
+          binary_search_opt vals element >>= fun idx ->
           if idx > 0 then
             (* Predecessor is the previous value in the current node *)
             Some vals.(idx - 1)
@@ -281,29 +291,32 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
 
 end
 
+(* 
+#############################################
+#                                           #
+#             testing methods               #
+#                                           #
+############################################# 
+*)
 
 (* BPTree with ints *)
 module Int_BPTree = BPTree(IntOrder)
 
-(* shuffle args of insert to make pipeline friendly *)
-let pipe_insert = (fun x tree -> Int_BPTree.insert tree x)
-
 (* Make new BP tree *)
 let newTree =
   Int_BPTree.empty ()
-  |> pipe_insert 1
-  |> pipe_insert 2
-  |> pipe_insert 3
-  |> pipe_insert 4
-  |> pipe_insert 5
-  |> pipe_insert 6
-  |> pipe_insert 7
-  |> pipe_insert 8
-  |> pipe_insert 9
-  |> pipe_insert 10
-
-(* let newTree = Int_BPTree.delete newTree 4
-let newTree = Int_BPTree.delete newTree 2 *)
+  |> Int_BPTree.insert ~element:1
+  |> Int_BPTree.insert ~element:2
+  |> Int_BPTree.insert ~element:3
+  |> Int_BPTree.insert ~element:4
+  |> Int_BPTree.insert ~element:5
+  |> Int_BPTree.insert ~element:6
+  |> Int_BPTree.insert ~element:7
+  |> Int_BPTree.insert ~element:8
+  |> Int_BPTree.insert ~element:9
+  |> Int_BPTree.insert ~element:10
+  (* |> Int_BPTree.delete ~element:4
+  |> Int_BPTree.delete ~element:2 *)
 
 let min_v = Int_BPTree.min newTree
 let max_v = Int_BPTree.max newTree
