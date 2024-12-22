@@ -83,28 +83,28 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
   (* Bin search to get rid of redundancy, ppx enabled inline to improve performance *)
   (* Log N *)
   let [@inline] binary_search (arr : key array) (k : key) : int =
-    let rec aux low high =
+    let rec bs_helper low high =
       if low >= high then low
       else
         let mid = (low + high) / 2 in
         match Order.compare k arr.(mid) with
-        | Lesser | Equal -> aux low mid
-        | Greater -> aux (mid + 1) high
+        | Lesser | Equal -> bs_helper low mid
+        | Greater -> bs_helper (mid + 1) high
     in
-    aux 0 (Array.length arr)
+    bs_helper 0 (Array.length arr)
 
   (* Binary search that returns an option for use in search and successor, critical for search and seccessor, some redundant code but idc anymore *)
   let [@inline] binary_search_opt (arr : key array) (k : key) : int option =
-    let rec aux low high =
+    let rec bso_helper low high =
       if low >= high then None  (* Key not found *)
       else
         let mid = (low + high) / 2 in
         match Order.compare k arr.(mid) with
         | Equal -> Some mid
-        | Lesser -> aux low mid
-        | Greater -> aux (mid + 1) high
+        | Lesser -> bso_helper low mid
+        | Greater -> bso_helper (mid + 1) high
     in
-    aux 0 (Array.length arr)
+    bso_helper 0 (Array.length arr)
 
   (* finds correct position in an array and inserts (this os to keep array sorted) *)
   (* Log N *)
@@ -183,7 +183,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     failwith "TODO"
 
   let rec search_node (tree : t) ~(element : key) : key bp_node option =
-      let rec aux node =
+      let rec search_helper node =
         match node with
         (* Found the leaf node *)
         | Leaf _ -> Some node 
@@ -191,9 +191,9 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
         (* Traverse the appropriate child *)
         | Internal (keys, children) ->
             let idx = binary_search keys element in
-            aux children.(idx) 
+            search_helper children.(idx) 
       in
-      aux tree.root
+      search_helper tree.root
 
   (* Normal seach, using monads to avoid nested matchings *)
   let search (tree : t) ~(element : key) : key option =
