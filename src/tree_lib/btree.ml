@@ -3,6 +3,16 @@
 (* The first top of this file is a bunch of types and other "organizational" modules which i usually would have hidden in other files
  however for this all to run in one file it is necessary*)
 
+(* Monad for Options *)
+module OptionMonad = struct
+  let return x = Some x
+
+  let ( >>= ) opt f =
+    match opt with
+    | None -> None
+    | Some x -> f x
+end
+
 (* type for B+ tree*)
 type 'a bp_node =
   | Internal of 'a array * 'a bp_node array
@@ -44,7 +54,7 @@ module type TREE = sig
 
   val delete : t -> key -> t
 
-  val search : t -> key -> key
+  val search : t -> key -> key option
 
   val successor : t -> key -> key option
 
@@ -59,6 +69,7 @@ end
 
 (* Implementation of B+ tree *)
 module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
+  open OptionMonad
 
   type key = Order.t
 
@@ -158,7 +169,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     failwith "TODO"
 
   (* Normal seach *)
-  let search (tree : t) (element : key) : key =
+  let search (tree : t) (element : key) : key option =
     failwith "TODO"
 
   (* Go to neighbor *)
@@ -168,13 +179,25 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
   let predecessor (tree : t) (element : key) : key option=
     failwith "TODO"
 
-  (* Go all the way left *)
-  let min (tree : t) : key option=
-    failwith "TODO"
+  (* Helper function for min/max search, using Monads for more readability (may be an inefficient use of monadsa) *)
+  let rec min_max_node (node : key bp_node) (to_index : 'a array -> int option) : key option =
+    match node with
+    | Leaf (vals, _) ->
+        to_index vals >>= fun idx -> Some vals.(idx)
+    | Internal (values, children) ->
+        to_index values >>= fun idx -> min_max_node children.(idx) to_index
 
-  (* Go all the way right *)
-  let max (tree : t) : key option=
-    failwith "TODO"
+  (* Min method *)
+  let min (tree : t) : key option =
+    min_max_node tree.root (fun arr ->
+        if Array.length arr = 0 then None else Some 0
+      )
+
+  (* Max method *)
+  let max (tree : t) : key option =
+    min_max_node tree.root (fun arr ->
+        if Array.length arr = 0 then None else Some (Array.length arr - 1)
+      )
 
     let print_tree (string_of_key : key -> string) (tree : t) : unit =
       let rec print_node (node : 'a bp_node) : unit =
@@ -219,5 +242,12 @@ let newTree = Int_BPTree.insert newTree 8
 let newTree = Int_BPTree.insert newTree 9
 let newTree = Int_BPTree.insert newTree 10
 
+let min_v = Int_BPTree.min newTree
+let max_v = Int_BPTree.max newTree
+let poo = Option.value ~default:0 min_v
+
 let () =
   Int_BPTree.print_tree string_of_int newTree
+
+let () =
+  print_endline (string_of_int poo)
