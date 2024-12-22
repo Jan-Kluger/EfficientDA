@@ -45,25 +45,16 @@ end
 (* Public methods for B+ tree *)
 module type TREE = sig
   type key
-
   type t
 
   val empty : ?k:int -> unit -> t
-
   val insert : t -> key -> t
-
   val delete : t -> key -> t
-
   val search : t -> key -> key option
-
   val successor : t -> key -> key option
-
   val predecessor : t -> key -> key option
-
   val min : t -> key option
-
   val max : t -> key option
-
   val print_tree : (key -> string) -> t -> unit
 end
 
@@ -88,6 +79,19 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
         let mid = (low + high) / 2 in
         match Order.compare k arr.(mid) with
         | Lesser | Equal -> aux low mid
+        | Greater -> aux (mid + 1) high
+    in
+    aux 0 (Array.length arr)
+
+  (* Binary search that returns an option for use in search and successor, critical for search and seccessor, some redundant code but idc anymore *)
+  let [@inline] binary_search_opt (arr : key array) (k : key) : int option =
+    let rec aux low high =
+      if low >= high then None  (* Key not found *)
+      else
+        let mid = (low + high) / 2 in
+        match Order.compare k arr.(mid) with
+        | Equal -> Some mid
+        | Lesser -> aux low mid
         | Greater -> aux (mid + 1) high
     in
     aux 0 (Array.length arr)
@@ -168,16 +172,68 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
   let delete (tree : t) (element : key) : t =
     failwith "TODO"
 
-  (* Normal seach *)
-  let search (tree : t) (element : key) : key option =
+  let search_node (tree : t) (element : key) : key bp_node option =
     failwith "TODO"
+
+  (* Normal seach, using monads to avoid nested matchings *)
+  let search (tree : t) (element : key) : key option =
+    search_node tree element >>= function
+    | Leaf (value, _) -> binary_search_opt value element >>= fun idx -> Some value.(idx)
+    | _ -> failwith "search must yield leaf"
 
   (* Go to neighbor *)
-  let successor (tree : t) (element : key) : key option =
-    failwith "TODO"
+  let successor (tree : t) (key : key) : key option =
+    search_node tree key >>= function
+    | Leaf (vals, neighbor_opt) ->
+        binary_search_opt vals key >>= fun idx ->
+        if idx < Array.length vals - 1 then
+          Some vals.(idx + 1)  (* Successor is the next value in the current array *)
+        else
+          neighbor_opt >>= begin function
+          | Leaf (next_vals, _) ->
+              if Array.length next_vals > 0 then Some next_vals.(0) else None
+          | _ -> failwith "Neighbor must be a leaf"
+          end
+    | _ -> failwith "search_node must yield a leaf"
+  
 
-  let predecessor (tree : t) (element : key) : key option=
-    failwith "TODO"
+    let predecessor (tree : t) (key : key) : key option =
+      let rec find_min_leaf node =
+        match node with
+        | Leaf (vals, _) -> Some node  (* Return the smallest leaf node *)
+        | Internal (_, children) -> find_min_leaf children.(0)  (* Traverse to the leftmost child *)
+      in
+    
+      search_node tree key >>= function
+      | Leaf (vals, neighbor_opt) ->
+          binary_search_opt vals key >>= fun idx ->
+          if idx > 0 then
+            (* Predecessor is the previous value in the current node *)
+            Some vals.(idx - 1)
+          else
+            (* predecessor is in previous leaf, so we need to go through all leaves *)
+            find_min_leaf tree.root >>= fun min_leaf ->
+            
+            if min_leaf == (Leaf (vals, neighbor_opt)) then
+              (* The current leaf is the smallest leaf, no predecessor *)
+              None  
+            else
+              (* Now we find the smallest leaf and go through all leaves, if next leaf is the leaf that our key is in, we know current leaf is predecessor leaf *)
+              let rec traverse_leaves current_leaf =
+                match current_leaf with
+                | Leaf (current_vals, Some next_leaf) ->
+                    if next_leaf = (Leaf (vals, neighbor_opt)) then
+                      (* We know we are in correct leaf, return last element *)
+                      Some current_vals.(Array.length current_vals - 1)
+                    else
+                      (* go to next leaf *)
+                      traverse_leaves next_leaf
+                | Leaf (_, None) -> failwith "predecessor leaf cannot be last leaf"  
+                | _ -> failwith "internal nodes are never travesed"
+                (* this last match case is just to keep typechecker happy *)
+              in
+              traverse_leaves min_leaf
+      | _ -> failwith "search_node must yield a leaf"
 
   (* Helper function for min/max search, using Monads for more readability (may be an inefficient use of monadsa) *)
   let rec min_max_node (node : key bp_node) (to_index : 'a array -> int option) : key option =
