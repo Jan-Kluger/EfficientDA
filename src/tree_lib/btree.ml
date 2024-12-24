@@ -109,21 +109,17 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
   let rec insert_in_node (tree : t) (node : key bp_node) (x : key) : key split_result =
   match node with
     | Leaf (vals, next_opt) ->
-        let new_vals = put_in_pos vals x in
-        if Array.length new_vals < 2 * tree.k then
-          NoSplit (Leaf (new_vals, next_opt))
-        else
-          let mid = Array.length new_vals / 2 in
-          let right_vals = Array.sub new_vals mid (Array.length new_vals - mid) in
-          let right_leaf = Leaf (right_vals, next_opt) in
-          Split (Leaf (Array.sub new_vals 0 mid, Some right_leaf), right_vals.(0), right_leaf)
+      let new_vals = put_in_pos vals x in
+      if Array.length new_vals < 2 * tree.k then
+        NoSplit (Leaf (new_vals, next_opt))
+      else
+        let mid = Array.length new_vals / 2 in
+        let right_vals = Array.sub new_vals mid (Array.length new_vals - mid) in
+        let right_leaf = Leaf (right_vals, next_opt) in
+        Split (Leaf (Array.sub new_vals 0 mid, Some right_leaf), right_vals.(0), right_leaf)
 
-  | Internal (keys, children) ->
-      let i = 
-        match binary_search keys x with
-        | Some n -> n
-        | None -> failwith "should never return none"
-      in
+    | Internal (keys, children) ->
+      let i = Option.get (binary_search keys x) in
       begin match insert_in_node tree children.(i) x with
       | NoSplit updated_child ->
           children.(i) <- updated_child;
@@ -228,44 +224,41 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
     | Internal _ ->
         failwith "successor must yield a leaf in a B+ tree"
   
+
+  (* log N predecessor function, go up until we have a sameller child, then dart right *)
+  (* This is 2log N worst case, or also O log N *)
   let predecessor (tree : t) ~(element : key) : key option =
-    failwith "todo"
-      (* let rec find_min_leaf node =
-        match node with
-        | Leaf (_) -> Some node  (* Return the smallest leaf node *)
-        | Internal (_, children) -> find_min_leaf children.(0)  (* Traverse to the leftmost child *)
-      in
-    
-      search_node tree ~element:element >>= function
-      | Leaf (vals, neighbor_opt) ->
-          binary_search_opt vals element >>= fun idx ->
-          if idx > 0 then
-            (* Predecessor is the previous value in the current node *)
-            Some vals.(idx - 1)
-          else
-            (* predecessor is in previous leaf, so we need to go through all leaves *)
-            find_min_leaf tree.root >>= fun min_leaf ->
-            
-            if min_leaf = (Leaf (vals, neighbor_opt)) then
-              (* The current leaf is the smallest leaf, no predecessor *)
-              None  
-            else
-              (* Now we find the smallest leaf and go through all leaves, if next leaf is the leaf that our key is in, we know current leaf is predecessor leaf *)
-              let rec traverse_leaves current_leaf =
-                match current_leaf with
-                | Leaf (current_vals, Some next_leaf) ->
-                    if next_leaf = (Leaf (vals, neighbor_opt)) then
-                      (* We know we are in correct leaf, return last element *)
-                      Some current_vals.(Array.length current_vals - 1)
-                    else
-                      (* go to next leaf *)
-                      traverse_leaves next_leaf
-                | Leaf (_, None) -> failwith "predecessor leaf cannot be last leaf"  
-                | _ -> failwith "internal nodes are never travesed"
-                (* this last match case is just to keep typechecker happy *)
-              in
-              traverse_leaves min_leaf
-      | _ -> failwith "search_node must yield a leaf" *)
+    (* find child to traverse to *)
+    let rec find_child (children : key bp_node array) (child : key bp_node) i =
+      if i >= Array.length children then None
+      else if children.(i) == child then Some i
+      else find_child children child (i + 1)
+    in
+    (* Dart right *)
+      let rec rightmost = function
+      | Leaf (vals, _) ->
+          if Array.length vals = 0 then None
+          else Some vals.(Array.length vals - 1)
+      | Internal (_, children) ->
+          rightmost children.(Array.length children - 1)
+    in
+    (* go up, if we find a smaller child, call dart reight, elso go up again *)
+      let rec up current = function
+      | [] -> None
+      | parent :: rest ->
+        match parent with
+        | Leaf _ -> None
+        | Internal (_, children) ->
+            find_child children current 0 >>= fun idx ->
+            if idx > 0 then rightmost children.(idx - 1) else up parent rest
+    in
+      let (leaf_opt, path) = search_node_and_path tree ~element in
+      leaf_opt >>= function
+      | Leaf (vals, _) ->
+        binary_search vals element ~none_case:true >>= fun idx ->
+        if idx > 0 then Some vals.(idx - 1) else up (Leaf (vals, None)) path
+      | Internal _ ->
+        failwith "B+ tree data must be in a leaf"
 
   (* Helper function for min/max search, using Monads for more readability (may be an inefficient use of monadsa) *)
   let rec min_max_node (node : key bp_node) (to_index : 'a array -> int option) : key option =
@@ -287,29 +280,29 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
         if Array.length arr = 0 then None else Some (Array.length arr - 1)
       )
 
-    let print_tree (string_of_key : key -> string) (tree : t) : unit =
-      let rec print_node (node : 'a bp_node) : unit =
-        match node with
-        | Leaf (vals, _next_opt) ->
-            let contents =
-              vals
-              |> Array.to_list
-              |> List.map string_of_key
-              |> String.concat ","
-            in
-            Printf.printf "Leaf: [%s]\n" contents
-    
-        | Internal (keys, children) ->
-            let contents =
-              keys
-              |> Array.to_list
-              |> List.map string_of_key
-              |> String.concat ","
-            in
-            Printf.printf "Internal: [%s]\n" contents;
-            Array.iter print_node children
-      in
-      print_node tree.root
+  let print_tree (string_of_key : key -> string) (tree : t) : unit =
+    let rec print_node (node : 'a bp_node) : unit =
+      match node with
+      | Leaf (vals, _next_opt) ->
+          let contents =
+            vals
+            |> Array.to_list
+            |> List.map string_of_key
+            |> String.concat ","
+          in
+          Printf.printf "Leaf: [%s]\n" contents
+  
+      | Internal (keys, children) ->
+          let contents =
+            keys
+            |> Array.to_list
+            |> List.map string_of_key
+            |> String.concat ","
+          in
+          Printf.printf "Internal: [%s]\n" contents;
+          Array.iter print_node children
+    in
+    print_node tree.root
 
 end
 
@@ -348,4 +341,5 @@ let () =
   print_endline (string_of_int (Option.value ~default:(-1) min_v));
   print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.search newTree ~element:4)));
   print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.successor newTree ~element:4)));
+  print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.predecessor newTree ~element:1)));
   print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.search newTree ~element:14)));
