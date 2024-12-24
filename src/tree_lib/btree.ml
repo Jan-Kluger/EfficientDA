@@ -192,15 +192,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
   in
   snap_helper tree.root []
 
-  let delete (tree : t) ~(element : key) : t =
-    let node, path =  search_node_and_path tree ~element:element in
-    match node with
-    | Some n -> 
-      begin match n with
-      | Leaf (values, next) -> failwith "todo"
-      | Internal (values, children) -> failwith "todo"
-      end
-    | _ -> tree
+  let delete _ = failwith "todo"
     
   (* Normal seach, using monads to avoid nested matchings *)
   let search (tree : t) ~(element : key) : key option =
@@ -270,24 +262,27 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
         failwith "data must be in a leaf"
 
   (* Helper function for min/max search, using Monads for more readability (may be an inefficient use of monadsa) *)
-  let rec min_max_node (node : key bp_node) (to_index : 'a array -> int option) : key option =
-    match node with
+  let rec min_node = function
     | Leaf (vals, _) ->
-        to_index vals >>= fun idx -> Some vals.(idx)
-    | Internal (values, children) ->
-        to_index values >>= fun idx -> min_max_node children.(idx) to_index
+        if Array.length vals = 0 then None
+        else Some vals.(0)
+    | Internal (_, children) ->
+        min_node children.(0)
+
+  let rec max_node = function
+    | Leaf (vals, _) ->
+        if Array.length vals = 0 then None
+        else Some vals.(Array.length vals - 1)
+    | Internal (_, children) ->
+        max_node children.(Array.length children - 1)
 
   (* Min method *)
   let min (tree : t) : key option =
-    min_max_node tree.root (fun arr ->
-        if Array.length arr = 0 then None else Some 0
-      )
+    min_node tree.root
 
   (* Max method *)
   let max (tree : t) : key option =
-    min_max_node tree.root (fun arr ->
-        if Array.length arr = 0 then None else Some (Array.length arr - 1)
-      )
+    max_node tree.root
 
   let print_tree (string_of_key : key -> string) (tree : t) : unit =
     let rec print_node (node : 'a bp_node) : unit =
@@ -339,8 +334,6 @@ let newTree =
   |> Int_BPTree.insert ~element:8
   |> Int_BPTree.insert ~element:9
   |> Int_BPTree.insert ~element:10
-  (* |> Int_BPTree.delete ~element:4
-  |> Int_BPTree.delete ~element:2 *)
 
 let min_v = Int_BPTree.min newTree
 let max_v = Int_BPTree.max newTree
