@@ -82,36 +82,24 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
 
   (* Bin search to get rid of redundancy, ppx enabled inline to improve performance *)
   (* Log N *)
-  let [@inline] binary_search (arr : key array) (k : key) : int =
-    let rec bs_helper low high =
-      if low >= high then low
-      else
-        let mid = (low + high) / 2 in
-        match Order.compare k arr.(mid) with
-        | Lesser | Equal -> bs_helper low mid
-        | Greater -> bs_helper (mid + 1) high
-    in
-    bs_helper 0 (Array.length arr)
-
-  (* Binary search that returns an option for use in search and successor, critical for search and seccessor, some redundant code but idc anymore *)
-  let [@inline] binary_search_opt (arr : key array) (k : key) : int option =
-    let rec bso_helper low high =
-      if low >= high then None  (* Key not found *)
+  let [@inline] binary_search ?(none_case = false) (arr : key array) (k : key) : int option =
+    let rec bs_helper low high none_case =
+      if low >= high then if none_case then None else Some low
       else
         let mid = (low + high) / 2 in
         match Order.compare k arr.(mid) with
         | Equal -> Some mid
-        | Lesser -> bso_helper low mid
-        | Greater -> bso_helper (mid + 1) high
+        | Lesser -> bs_helper low mid none_case
+        | Greater -> bs_helper (mid + 1) high none_case
     in
-    bso_helper 0 (Array.length arr)
+    bs_helper 0 (Array.length arr) none_case
 
   (* finds correct position in an array and inserts (this os to keep array sorted) *)
   (* Log N *)
   let put_in_pos (arr : key array) (el : key) : key array =
-    let pos = binary_search arr el in
-    Array.append (Array.sub arr 0 pos) [|el|]
-    |> Array.append (Array.sub arr pos (Array.length arr - pos))
+    let pos = Option.get (binary_search arr el) in
+      Array.append (Array.sub arr 0 pos) [|el|]
+      |> Array.append (Array.sub arr pos (Array.length arr - pos))
 
   (* Get empty tree, by default k is set to 2, can be decided by user themselves of course *)
   let empty ?(k = 2) (): t =
@@ -131,7 +119,11 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
           Split (Leaf (Array.sub new_vals 0 mid, Some right_leaf), right_vals.(0), right_leaf)
 
   | Internal (keys, children) ->
-      let i = binary_search keys x in
+      let i = 
+        match binary_search keys x with
+        | Some n -> n
+        | None -> failwith "should never return none"
+      in
       begin match insert_in_node tree children.(i) x with
       | NoSplit updated_child ->
           children.(i) <- updated_child;
@@ -149,6 +141,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
             let r_child = Array.sub children (i+1) (len - (i+1)) in
             Array.concat [ l_child; [| r_node |]; r_child ]
           in
+          
           (* save calculation of keys_length for faster bla. *)
           let keys_length = Array.length new_keys in
 
@@ -179,47 +172,67 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
       (* new root value if root splits, just the seperator key *)
       { tree with root = Internal ([| sep_key |], new_children) }
 
+  (* find node in tree and keep track of path to get there *)
+  let [@tail_mod_cons] search_node_and_path (tree : t) ~(element : key) : (key bp_node option * key bp_node list) =
+  let rec snap_helper (node : key bp_node) (path : key bp_node list) : (key bp_node option * key bp_node list) =
+    match node with
+    (* found leaf *)
+    | Leaf _ ->
+        (Some node, node :: path)
+
+    (* Internal node and we need to keep traversing *)
+    | Internal (keys, children) ->
+        let idx = Option.get (binary_search keys element) in
+        snap_helper children.(idx) (node :: path)
+  in
+  snap_helper tree.root []
+
   let delete (tree : t) ~(element : key) : t =
-    failwith "TODO"
-
-  let rec search_node (tree : t) ~(element : key) : key bp_node option =
-      let rec search_helper node =
-        match node with
-        (* Found the leaf node *)
-        | Leaf _ -> Some node 
-
-        (* Traverse the appropriate child *)
-        | Internal (keys, children) ->
-            let idx = binary_search keys element in
-            search_helper children.(idx) 
-      in
-      search_helper tree.root
-
+    let node, path =  search_node_and_path tree ~element:element in
+    match node with
+    | Some n -> 
+      begin match n with
+      | Leaf (values, next) -> failwith "todo"
+      | Internal (values, children) -> failwith "todo"
+      end
+    | _ -> tree
+    
   (* Normal seach, using monads to avoid nested matchings *)
   let search (tree : t) ~(element : key) : key option =
-    search_node tree ~element:element >>= function
-    | Leaf (value, _) -> binary_search_opt value element >>= fun idx -> Some value.(idx)
-    | _ -> failwith "search must yield leaf"
+    let (leaf_opt, _path) = search_node_and_path tree ~element in
+    leaf_opt >>= function
+    | Leaf (vals, _) ->
+        (* If we have a leaf, binary_search_opt returns (int option). 
+           If it’s Some idx, we do Some vals.(idx). If None, everything returns None. *)
+        binary_search vals element ~none_case:true >>= fun idx ->
+        Some vals.(idx)
+    | Internal _ ->
+        failwith "search must yield leaf in a B+ tree"
 
   (* Go to neighbor *)
   let successor (tree : t) ~(element : key) : key option =
-    search_node tree ~element:element >>= function
+    let (leaf_opt, _) = search_node_and_path tree ~element in
+    leaf_opt >>= function
     | Leaf (vals, neighbor_opt) ->
-        binary_search_opt vals element >>= fun idx ->
+        binary_search vals element ~none_case:true >>= fun idx ->
         if idx < Array.length vals - 1 then
-          Some vals.(idx + 1)  (* Successor is the next value in the current array *)
+          Some vals.(idx + 1)
         else
-          neighbor_opt >>= begin function
+          neighbor_opt >>= fun neighbor_node ->
+          begin match neighbor_node with
           | Leaf (next_vals, _) ->
               if Array.length next_vals > 0 then Some next_vals.(0) else None
-          | _ -> failwith "Neighbor must be a leaf"
+          | Internal _ ->
+              failwith "Neighbor must be a leaf"
           end
-    | _ -> failwith "search_node must yield a leaf"
+    | Internal _ ->
+        failwith "successor must yield a leaf in a B+ tree"
   
   let predecessor (tree : t) ~(element : key) : key option =
-      let rec find_min_leaf node =
+    failwith "todo"
+      (* let rec find_min_leaf node =
         match node with
-        | Leaf (vals, _) -> Some node  (* Return the smallest leaf node *)
+        | Leaf (_) -> Some node  (* Return the smallest leaf node *)
         | Internal (_, children) -> find_min_leaf children.(0)  (* Traverse to the leftmost child *)
       in
     
@@ -233,7 +246,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
             (* predecessor is in previous leaf, so we need to go through all leaves *)
             find_min_leaf tree.root >>= fun min_leaf ->
             
-            if min_leaf == (Leaf (vals, neighbor_opt)) then
+            if min_leaf = (Leaf (vals, neighbor_opt)) then
               (* The current leaf is the smallest leaf, no predecessor *)
               None  
             else
@@ -252,7 +265,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
                 (* this last match case is just to keep typechecker happy *)
               in
               traverse_leaves min_leaf
-      | _ -> failwith "search_node must yield a leaf"
+      | _ -> failwith "search_node must yield a leaf" *)
 
   (* Helper function for min/max search, using Monads for more readability (may be an inefficient use of monadsa) *)
   let rec min_max_node (node : key bp_node) (to_index : 'a array -> int option) : key option =
@@ -334,4 +347,5 @@ let () =
   Int_BPTree.print_tree string_of_int newTree;
   print_endline (string_of_int (Option.value ~default:(-1) min_v));
   print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.search newTree ~element:4)));
+  print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.successor newTree ~element:4)));
   print_endline (string_of_int (Option.value ~default:(-1) (Int_BPTree.search newTree ~element:14)));
