@@ -49,13 +49,22 @@ module type TREE = sig
   type t
 
   val empty : ?k:int -> unit -> t
+(* O log N *)
   val insert : t -> element:key -> t
+
+(* O log N *)
   val delete : t -> element:key -> t
+(* O log N *)
   val search : t -> element:key -> key option
+(* O 1 *)
   val successor : t -> element:key -> key option
+(* O log N *)
   val predecessor : t -> element:key -> key option
+(* O log N *)
   val min : t -> key option
+(* O log N *)
   val max : t -> key option
+(* O N *)
   val print_tree : (key -> string) -> t -> unit
 end
 
@@ -222,7 +231,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
               failwith "Neighbor must be a leaf"
           end
     | Internal _ ->
-        failwith "successor must yield a leaf in a B+ tree"
+        failwith "successor must yield a leaf"
   
 
   (* log N predecessor function, go up until we have a sameller child, then dart right *)
@@ -258,7 +267,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
         binary_search vals element ~none_case:true >>= fun idx ->
         if idx > 0 then Some vals.(idx - 1) else up (Leaf (vals, None)) path
       | Internal _ ->
-        failwith "B+ tree data must be in a leaf"
+        failwith "data must be in a leaf"
 
   (* Helper function for min/max search, using Monads for more readability (may be an inefficient use of monadsa) *)
   let rec min_max_node (node : key bp_node) (to_index : 'a array -> int option) : key option =
