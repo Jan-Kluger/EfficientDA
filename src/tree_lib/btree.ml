@@ -178,7 +178,7 @@ module BPTree (Order : ORDER) : TREE with type key = Order.t = struct
       { tree with root = Internal ([| sep_key |], new_children) }
 
   (* find node in tree and keep track of path to get there *)
-  let [@tail_mod_cons] search_node_and_path (tree : t) ~(element : key) : (key bp_node option * key bp_node list) =
+  let search_node_and_path (tree : t) ~(element : key) : (key bp_node option * key bp_node list) =
   let rec snap_helper (node : key bp_node) (path : key bp_node list) : (key bp_node option * key bp_node list) =
     match node with
     (* found leaf *)
