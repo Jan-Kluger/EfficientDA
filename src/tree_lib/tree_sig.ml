@@ -1,11 +1,12 @@
 module type TREE = sig
-  type 'a t
+  type key
+  type t
 
-  val insert : 'a t -> element:'a -> 'a t
-  val delete : 'a t -> element:'a -> 'a t
-  val search : 'a t -> element:'a -> 'a option
-  val successor : 'a t -> element:'a -> 'a option
-  val predecessor : 'a t -> element:'a -> 'a option
-  val min : 'a t -> 'a
-  val max : 'a t -> 'a
+  val insert : t -> element:key -> t
+  val delete : t -> element:key -> t
+  val search : t -> element:key -> key option
+  val successor : t -> element:key -> key option
+  val predecessor : t -> element:key -> key option
+  val min : t -> key option
+  val max : t -> key option
 end
