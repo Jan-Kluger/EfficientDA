@@ -5,21 +5,23 @@ open Order_lib.Orders
 type color = Red | Black
 
 type 'a rb_node =
-  | Node of color * 'a rb_node * 'a rb_node
+  | Node of color * 'a * 'a rb_node * 'a rb_node
   | Leaf
 
 (* RB Tree implementation *)
 module RbTree (Order : Order_lib.Order_sig.ORDER) : Tree_sig.TREE with type 'a t = 'a rb_node = struct
+  open Monad_lib.Monads.OptionMonad
+
   type 'a t = 'a rb_node
 
   let [@ inline] rec black_height (node : 'a t) : int =
     match node with
-    | Node (c, l, _) -> if c = Black then (black_height l + 1) else black_height l
+    | Node (c, _, l, _) -> if c = Black then (black_height l + 1) else black_height l
     | Leaf -> 1
     
     let rec black_height_check (node : 'a t) : int =
       match node with
-      | Node (c, l, r) ->
+      | Node (c, _, l, r) ->
           let left_height = black_height l in
           let right_height = black_height r in
           if left_height <> right_height then
@@ -27,16 +29,18 @@ module RbTree (Order : Order_lib.Order_sig.ORDER) : Tree_sig.TREE with type 'a t
           if c = Black then left_height + 1 else left_height
       | Leaf -> 1
 
-  let insert _ _ = 
-    failwith "todo"
+let insert (tree : 'a t) ~(element : 'a) : 'a t = 
+    match tree with
+    | Leaf -> Node (Black, element, Leaf, Leaf)
+    | Node _ -> failwith "todo" 
   
-  let delete _ _ = failwith "TODO"
+  let delete (tree : 'a t) ~(element : 'a) = failwith "TODO"
 
-  let search _ _ = failwith "TODO"
+  let search (tree : 'a t) ~(element : 'a) = failwith "TODO"
 
-  let successor _ _ = failwith "TODO"
+  let successor (tree : 'a t) ~(element : 'a) = failwith "TODO"
 
-  let predecessor _ _ = failwith "TODO"
+  let predecessor (tree : 'a t) ~(element : 'a) = failwith "TODO"
 
   let min _ = failwith "TODO"
 
