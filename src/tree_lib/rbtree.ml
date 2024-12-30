@@ -79,9 +79,17 @@ module RbTree (Order : Order_lib.Order_sig.ORDER) : Tree_sig.TREE with type key 
 
   let predecessor (tree : t) ~(element : key) = failwith "TODO"
 
-  let min _ = failwith "TODO"
+  let rec min (tree : t) = 
+    match tree with
+    | Node (_, _, v, Leaf) -> Some v
+    | Node (_, _, _, r) -> min r
+    | Leaf -> None
 
-  let max _ = failwith "TODO"
+  let rec max (tree : t) = 
+    match tree with
+    | Node (_, Leaf, v, _) -> Some v
+    | Node (_, l, _, _) -> max l
+    | Leaf -> None
 end
 
 module Int_RBTree = RbTree(IntOrder)
