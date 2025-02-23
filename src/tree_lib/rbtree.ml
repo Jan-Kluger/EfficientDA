@@ -35,7 +35,7 @@ module RbTree (Order : Order_lib.Order_sig.ORDER) : Tree_sig.TREE with type key 
     | Leaf -> 1
 
   (* Method to rebalance tree (for insertion) *)
-  let fix_ins (Node (c,r,v,l) as node : t) (z_pos : int) : t =
+  let fix_ins (Node (c,r,v,l) as _node : t) (z_pos : int) : t =
     begin match r, l with
     | Node (c1,Node (c3,r3,v3,l3),v1,Node (c4,r4,v4,l4)), Node (c2,Node (c5,r5,v5,l5),v2,Node (c6,r6,v6,l6)) -> 
       begin match z_pos with
