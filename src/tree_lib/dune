@@ -1,4 +1,5 @@
 (library
  (name tree_lib)
  (libraries order_lib monad_lib)
+ (flags (-w -32))
  (modules tree_sig rbtree btree))
