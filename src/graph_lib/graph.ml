@@ -2,6 +2,8 @@
 
 (* Define exception foredge insertion *)
 exception Insert_error of string
+exception Search_error of string
+
 
 open Order_lib.Order_sig
 
@@ -56,7 +58,7 @@ module MapGraph (O : ORDER) : sig
   val build_graph : t -> O.t node list -> t
 
   (* Min cut max flow, takes a src and a sink and returns the saturated graph *)
-  val minCut_maxFlow : t -> src:O.t node -> sink:O.t node -> t
+  val minCut_maxFlow_exm : t -> src:O.t node -> sink:O.t node -> t
 
   (* Computes Min-cost flow, returns mincost graph, min cost can be extrapolated seperatley from the graph *)
   val minCostFlow : t -> src:O.t node -> sink:O.t node -> t
@@ -108,12 +110,32 @@ end = struct
   let build_graph (graph : t) (nodes : O.t node list) : t =
     List.fold_left insert_node graph nodes
 
-  let minCut_maxFlow (graph : t) ~(src : O.t node) ~(sink : O.t node) : t =
+  let minCut_maxFlow_exm (graph : t) ~(src : O.t node) ~(sink : O.t node) : t =
 
-    let find_aug_path ?(path : O.t node list = []) (node : O.t node) (set : int NodeMap.t) : O.t node list =
-      failwith "todo"
+    (* Sub function to find an augmenting path *)
+    (* Returns (O.t node list * int) which is the path and bottleneck *)
+    let rec find_aug_path ?(path : O.t node list = []) (node : O.t node) (set : int NodeMap.t) ~(bottleneck : int option) : (O.t node list* int) option =
+
+      (* Get the edges of the current node, removing nodes weve already been at and already saturated flows*)
+      let edges =
+        match (NodeMap.find_opt node graph) with
+        | Some e -> List.filter (fun (Edge (_, cap, flow, _, dest)) -> not (NodeMap.mem dest set) || (cap <> flow)) e
+        | None -> raise (Search_error "Node references non existant neighbor")
+      in
+
+      (* For each neigboring node, keep loking, if we reach sink return some path, if not keep looking, if there are no more edges tovisit, return none *)
+      List.fold_left (fun _ (Edge (_, cap, flow, _, dest))  -> 
+        let new_bottleneck = 
+          match bottleneck with
+        | None -> (cap - flow)
+        | Some b -> min b (cap - flow)
+        in
+        if dest = sink then Some (sink :: node :: path, new_bottleneck) else find_aug_path ~path:(node :: path) dest (set |> NodeMap.add node 1) ~bottleneck:(Some new_bottleneck)
+        ) None edges
     in
 
+    (* Find augmenting path by calling on set only containing src *)
+    let path = Option.value (find_aug_path src (NodeMap.empty |> NodeMap.add src 1) ~bottleneck:None) ~default:([],0) in
     failwith "todo"
 
   let minCostFlow (graph : t) ~(src : O.t node) ~(sink : O.t node) : t =
