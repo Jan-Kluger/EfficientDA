@@ -49,7 +49,7 @@ module MapGraph (O : ORDER) : sig
 
   (* Insert edge to node *)
   (* NOTE: can raise an exception if node doesnt exist *)
-  val insert_edge : t -> O.t node -> O.t edge -> t
+  val insert_edge_exm : t -> O.t node -> O.t edge -> t
 
   (* function to see if node is contained within graph *)
   val contains_node : t -> O.t node -> bool
@@ -66,7 +66,6 @@ module MapGraph (O : ORDER) : sig
 
 end = struct
 (* Implementation of graph module *)
-
 
   module NodeMap = NodeMap(O)
 
@@ -127,17 +126,54 @@ end = struct
       List.fold_left (fun _ (Edge (_, cap, flow, _, dest))  -> 
         let new_bottleneck = 
           match bottleneck with
-        | None -> (cap - flow)
-        | Some b -> min b (cap - flow)
+          (* If we do not have a bottleneck yet, then we have one now, it is the difference between cap and flow *)
+          | None -> (cap - flow)
+          (* If we already have a bottleneck, check if our new one is lowe, if so, decrease the bottlneck *)
+          | Some b -> min b (cap - flow)
         in
-        if dest = sink then Some (sink :: node :: path, new_bottleneck) else find_aug_path ~path:(node :: path) dest (set |> NodeMap.add node 1) ~bottleneck:(Some new_bottleneck)
+
+        (* If we have reached our goal, return the path to get there and out bottleneck along the way *)
+        if dest = sink then 
+          Some (sink :: node :: path, new_bottleneck) 
+        else 
+        (* If not update bottleneck and keep searching *)
+          find_aug_path ~path:(node :: path) dest (set |> NodeMap.add node 1) ~bottleneck:(Some new_bottleneck)
         ) None edges
     in
 
     (* Find augmenting path by calling on set only containing src *)
-    let path = Option.value (find_aug_path src (NodeMap.empty |> NodeMap.add src 1) ~bottleneck:None) ~default:([],0) in
-    failwith "todo"
+    let aug_path = find_aug_path src (NodeMap.empty |> NodeMap.add src 1) ~bottleneck:None in
 
-  let minCostFlow (graph : t) ~(src : O.t node) ~(sink : O.t node) : t =
+    (* Check to see if we find any augmenting paths *)
+    match aug_path with
+    (* If we can find an aumenting path, increase the flow by the bottlneck amount *)
+    | Some (path, bottleneck) -> 
+      let rec increase_flow (path : O.t node list) (amount : int) (graph_acc : t) : t = 
+        match path with
+        | f :: t :: xs -> begin
+          (* (min_cap, max_cap, old_flow, cost, dest) *)
+          let old_edges = NodeMap.find f graph in
+          (* Map the edge heading to the next node with increased flow *)
+          let new_edges = List.map (fun (Edge (min_cap, max_cap, old_flow, cost, dest) as edge) ->
+            if dest = t then Edge (min_cap, max_cap, old_flow + amount, cost, dest) else edge) old_edges
+          in
+
+          (* update node with new edges in graph *)
+          let new_graph = NodeMap.add f new_edges graph in
+
+          (* recursive call to update next edge *)
+          increase_flow (t :: xs) amount new_graph
+        end
+        (* If we are at the ned of tthe path we have updated all edges, and we can return the new graph *)
+        | _ -> graph_acc
+      in
+
+      (* Recall to see if there any more augmenting paths *)
+      increase_flow (List.rev path) bottleneck graph
+    (* If we find no augmenting path, then we return the graph, this means we have saturated all we can *)
+    | None -> graph
+
+  let minCostFlow (_graph : t) ~(src : O.t node) ~(sink : O.t node) : t =
+    let _ = (src,sink) in
     failwith "todo"
 end
