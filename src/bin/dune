@@ -1,4 +1,4 @@
 (executable
  (public_name src)
  (name main)
- (libraries tree_lib))
+ (libraries tree_lib graph_lib order_lib))
