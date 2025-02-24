@@ -1,4 +1,4 @@
 (library
- (name grpah_lib)
+ (name graph_lib)
  (libraries order_lib)
  (modules graph max_flow min_cost_flow))
