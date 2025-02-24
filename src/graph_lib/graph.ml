@@ -120,7 +120,7 @@ end = struct
     | Some e -> List.fold_left (fun acc (Edge (_, _, flow, _, _)) -> acc + flow) 0 e
     | None -> raise (Search_error "src not in graph!")
 
-  let maxFlow_exm (graph : t) ~(src : O.t node) ~(sink : O.t node) : t =
+  let maxFlow_exm (graph : t) ~(src : O.t node) ~(sink : O.t node) : t [@depriciated] =
 
     (* Sub function to find an augmenting path *)
     (* Returns (O.t node list * int) which is the path and bottleneck *)
